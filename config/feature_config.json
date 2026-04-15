@@ -1,0 +1,180 @@
+{
+  "id_and_label_columns": {
+    "columns": [
+      "user_id",
+      "item_id",
+      "label_type",
+      "label_time",
+      "timestamp"
+    ],
+    "data_types": [
+      "int64",
+      "int64",
+      "int32",
+      "int64",
+      "int64"
+    ],
+    "has_nulls": false
+  },
+  "user_int_features": {
+    "scalar_columns": [
+      "user_int_feats_1",
+      "user_int_feats_3",
+      "user_int_feats_4",
+      "user_int_feats_48",
+      "user_int_feats_49",
+      "user_int_feats_50",
+      "user_int_feats_51",
+      "user_int_feats_52",
+      "user_int_feats_53",
+      "user_int_feats_54",
+      "user_int_feats_55",
+      "user_int_feats_56",
+      "user_int_feats_57",
+      "user_int_feats_58",
+      "user_int_feats_59",
+      "user_int_feats_82",
+      "user_int_feats_86",
+      "user_int_feats_92",
+      "user_int_feats_93",
+      "user_int_feats_94",
+      "user_int_feats_95",
+      "user_int_feats_96",
+      "user_int_feats_97",
+      "user_int_feats_98",
+      "user_int_feats_99",
+      "user_int_feats_100",
+      "user_int_feats_101",
+      "user_int_feats_102",
+      "user_int_feats_103",
+      "user_int_feats_104",
+      "user_int_feats_105",
+      "user_int_feats_106",
+      "user_int_feats_107",
+      "user_int_feats_108",
+      "user_int_feats_109"
+    ],
+    "array_columns": [
+      "user_int_feats_15",
+      "user_int_feats_60",
+      "user_int_feats_62",
+      "user_int_feats_63",
+      "user_int_feats_64",
+      "user_int_feats_65",
+      "user_int_feats_66",
+      "user_int_feats_80",
+      "user_int_feats_89",
+      "user_int_feats_90",
+      "user_int_feats_91"
+    ],
+    "total_scalar": 35,
+    "total_array": 11,
+    "total": 46
+  },
+  "user_dense_features": {
+    "array_columns": [
+      "user_dense_feats_61",
+      "user_dense_feats_62",
+      "user_dense_feats_63",
+      "user_dense_feats_64",
+      "user_dense_feats_65",
+      "user_dense_feats_66",
+      "user_dense_feats_87",
+      "user_dense_feats_89",
+      "user_dense_feats_90",
+      "user_dense_feats_91"
+    ],
+    "total": 10
+  },
+  "item_int_features": {
+    "scalar_columns": [
+      "item_int_feats_5",
+      "item_int_feats_6",
+      "item_int_feats_7",
+      "item_int_feats_8",
+      "item_int_feats_9",
+      "item_int_feats_10",
+      "item_int_feats_12",
+      "item_int_feats_13",
+      "item_int_feats_16",
+      "item_int_feats_81",
+      "item_int_feats_83",
+      "item_int_feats_84",
+      "item_int_feats_85"
+    ],
+    "array_columns": [
+      "item_int_feats_11"
+    ],
+    "total_scalar": 13,
+    "total_array": 1,
+    "total": 14
+  },
+  "domain_sequence_features": {
+    "domain_a": [
+      "domain_a_seq_38",
+      "domain_a_seq_39",
+      "domain_a_seq_40",
+      "domain_a_seq_41",
+      "domain_a_seq_42",
+      "domain_a_seq_43",
+      "domain_a_seq_44",
+      "domain_a_seq_45",
+      "domain_a_seq_46"
+    ],
+    "domain_b": [
+      "domain_b_seq_67",
+      "domain_b_seq_68",
+      "domain_b_seq_69",
+      "domain_b_seq_70",
+      "domain_b_seq_71",
+      "domain_b_seq_72",
+      "domain_b_seq_73",
+      "domain_b_seq_74",
+      "domain_b_seq_75",
+      "domain_b_seq_76",
+      "domain_b_seq_77",
+      "domain_b_seq_78",
+      "domain_b_seq_79",
+      "domain_b_seq_88"
+    ],
+    "domain_c": [
+      "domain_c_seq_27",
+      "domain_c_seq_28",
+      "domain_c_seq_29",
+      "domain_c_seq_30",
+      "domain_c_seq_31",
+      "domain_c_seq_32",
+      "domain_c_seq_33",
+      "domain_c_seq_34",
+      "domain_c_seq_35",
+      "domain_c_seq_36",
+      "domain_c_seq_37",
+      "domain_c_seq_47"
+    ],
+    "domain_d": [
+      "domain_d_seq_17",
+      "domain_d_seq_18",
+      "domain_d_seq_19",
+      "domain_d_seq_20",
+      "domain_d_seq_21",
+      "domain_d_seq_22",
+      "domain_d_seq_23",
+      "domain_d_seq_24",
+      "domain_d_seq_25",
+      "domain_d_seq_26"
+    ],
+    "total_domain_a": 9,
+    "total_domain_b": 14,
+    "total_domain_c": 12,
+    "total_domain_d": 10,
+    "total": 45
+  },
+  "total_features": {
+    "id_and_label": 5,
+    "user_int": 46,
+    "user_dense": 10,
+    "item_int": 14,
+    "domain_sequence": 45,
+    "total": 120
+  }
+}

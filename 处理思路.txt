@@ -1,0 +1,19 @@
+1. 非序列特征处理 (Non-Sequential Tokenization)
+涉及类别： ID & Label, User Int Features (标量), Item Int Features (标量)。
+离散化与嵌入 (Bucketization & Embedding)：
+对于 user_id、item_id 等高维 ID 特征，直接进行 One-hot 编码并映射为 Embedding 。
+对于数值型特征（如某些 User Int Features），论文建议先进行 分桶（Bucketized） 处理后再进行 Embedding，以对齐 Token 的维度 $d$ 。
+Token 生成策略：
+Auto-Split Tokenizer (推荐)： 将上述所有非序列特征拼接（Concat）后，通过一个简单的 MLP 映射到指定的维度，然后分割成 $L_{NS}$ 个 NS-tokens 。这种方式在论文中被证明具有更低的内核启动开销 。
+参数化： 在后续模型中，这些 NS-tokens 将被分配 Token-specific 参数（即每个 Token 有独立的 QKV 投影权重），以保留其独特的语义信息 。
+2. 用户密集特征处理 (User Dense Features)
+涉及类别： User Dense Features (list<float>)。
+维度对齐： 由于这些是连续的浮点数数组，需要通过一个 Shared MLP 将这些向量投影到与 Transformer 相同的维度 $d$ 。
+联合建模： 针对你提到的 user_int_feats_{fid} 与 user_dense_feats_{fid} 对齐的情况，建议将它们拼接到一起后再进行投影，形成一个统一的实体 Token。
+3. 用户行为序列与域序列处理 (Sequential Tokenization)
+涉及类别： User Int Features (数组), Item Int Features (数组), Domain Sequence Features (4 域序列)。
+统一事件表示： 将序列中的每个事件（如 domain_a_seq 中的元素）与相关的侧边信息（如 item 属性）拼接，通过 Shared MLP 映射为 S-tokens 。
+序列融合策略 (Fusion)：
+Timestamp-aware (时间戳感知，强烈推荐)： 既然数据中有 timestamp，论文建议将来自不同域（Domain A-D）的所有行为事件按时间戳顺序交叉排列（Interleave） 。
+插入分隔符： 在不同类型的行为序列之间插入可学习的 [SEP] Token，以界定边界 。
+参数共享： 在 Transformer 处理中，所有的 S-tokens 将 共享同一组 QKV 和 FFN 权重，以实现跨序列的通用特征提取 。

@@ -1,0 +1,18 @@
+# 核心深度学习框架 (建议安装 2.0+ 版本以支持最新混合精度 API)
+torch>=2.0.0
+torchvision
+torchaudio
+
+# 数据处理与高性能 IO
+polars>=0.19.0
+pyarrow        # Polars 读取 Parquet 的必要引擎
+numpy<2.0.0    # 保持与当前大部分 PyTorch 版本的兼容性
+
+# 配置文件解析
+pyyaml
+
+# 机器学习评估工具
+scikit-learn
+
+# 辅助工具
+tqdm           # 如果后续你想在训练循环中加入进度条

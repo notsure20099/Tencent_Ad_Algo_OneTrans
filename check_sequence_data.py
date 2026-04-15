@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 
 # 加载数据
-df = pd.read_parquet(r'E:\py_project\Tencent_Ad_Algo_OneTrans\data\raw\demo_1000.parquet')
+df = pd.read_parquet('/mnt/workspace/Tencent_Ad_Algo_OneTrans/data/raw/demo_1000.parquet')
 
 print("数据基本信息:")
 print(df.info())

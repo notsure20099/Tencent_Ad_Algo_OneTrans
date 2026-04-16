@@ -18,34 +18,38 @@ def prepare_data(input_path, mapping_path, output_dir, config_path):
 
     def process_to_tensor(subset_df, desc):
         all_features = []
-        labels = (subset_df[cfg['label_col']].to_numpy() == full_cfg['train']['positive_label']).astype(float)
+        labels = (subset_df[cfg['label_col']].to_numpy() == 1).astype(float)
         
         for i in tqdm(range(len(subset_df)), desc=desc):
-            # --- 创新点 1: 序列在前 (S-Tokens)，非序列在后 (NS-Tokens) ---
+            # 创新点 1：序列（S）在前
             s_tokens = []
             for domain_name, cols in cfg['s_features'].items():
                 for col in cols:
                     raw_seq = subset_df[col][i]
                     mapped = [id_map.get(str(int(x)), PAD_ID) for x in (raw_seq or [])]
-                    mapped = mapped[-cfg['s_max_len']:] # 截断
-                    mapped = mapped + [PAD_ID] * (cfg['s_max_len'] - len(mapped)) # 填充
+                    mapped = mapped[-cfg['s_max_len']:]
+                    mapped = mapped + [PAD_ID] * (cfg['s_max_len'] - len(mapped))
                     s_tokens.extend(mapped)
                 s_tokens.append(SEP_ID) 
 
+            # 非序列（NS）在后
             ns_tokens = []
-            for col in (cfg['ns_features']['user_scalar'] + cfg['ns_features']['item_scalar']):
+            ns_cols = cfg['ns_features']['user_scalar'] + cfg['ns_features']['item_scalar']
+            for col in ns_cols:
                 val = subset_df[col][i]
-                ns_tokens.append(id_map.get(str(int(val)), PAD_ID) if val is not None else PAD_ID)
+                token = id_map.get(str(int(val)), PAD_ID) if val is not None else PAD_ID
+                ns_tokens.append(token)
             
-            # 拼接顺序：[S, NS] -> 方便后续 KV Cache 只缓存 S 部分
-            unified_tokens = s_tokens + ns_tokens
-            all_features.append(unified_tokens)
+            # [S_Tokens, NS_Tokens]
+            all_features.append(s_tokens + ns_tokens)
 
         return torch.tensor(all_features, dtype=torch.long), torch.tensor(labels, dtype=torch.float)
 
     os.makedirs(output_dir, exist_ok=True)
-    x_train, y_train = process_to_tensor(df.head(int(len(df)*0.8)), "训练集转换")
+    split_idx = int(len(df) * 0.8)
+    
+    x_train, y_train = process_to_tensor(df.head(split_idx), "Training Data")
     torch.save({'x': x_train, 'y': y_train}, os.path.join(output_dir, 'train_data.pt'))
     
-    x_val, y_val = process_to_tensor(df.tail(int(len(df)*0.2)), "验证集转换")
+    x_val, y_val = process_to_tensor(df.tail(len(df) - split_idx), "Val Data")
     torch.save({'x': x_val, 'y': y_val}, os.path.join(output_dir, 'val_data.pt'))

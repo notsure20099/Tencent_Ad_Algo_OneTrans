@@ -16,6 +16,9 @@ model:
   num_layers: 4         # 可以稍微加深 Transformer 层数
   n_heads: 8
   dropout: 0.1          # 数据量大时，dropout 可以设小一点
+  use_pyramid: True       # 是否开启金字塔调度
+  compression_layer: 1    # 在第几层后进行压缩（索引从0开始）
+  compression_stride: 2   # 压缩倍率：2代表长度减半
 
 train:
   batch_size: 8       # A10 建议从 512 起步，如果显存还空就翻倍到 1024

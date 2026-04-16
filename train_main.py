@@ -4,6 +4,7 @@ import yaml
 import os
 import json
 import gc
+import time
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.metrics import roc_auc_score
 from tqdm import tqdm
@@ -53,16 +54,38 @@ class OneTransModel(nn.Module):
             nn.Linear(64, 1),
             nn.Sigmoid()
         )
+        self.debug_mode = True # 开启首条数据透视
 
     def forward(self, x):
-        b, f, s = x.shape
-        x = x.view(b * f, s) 
-        x = self.embedding(x)
-        x = self.transformer(x)
-        x = x.mean(dim=1) 
-        x = x.view(b, f, -1).mean(dim=1) 
-        return self.fc(x).squeeze()
+        # x 形状: [Batch, Seq_Len] -> 在采样阶段我们已经压平了
+        if self.debug_mode:
+            print(f"\n{'='*20} 模型内部数据流转透视 {'='*20}")
+            print(f"【输入层】原始 ID 序列形状: {x.shape} (Batch Size, 总 Token 数)")
 
+        # 1. Embedding 层
+        x = self.embedding(x)
+        if self.debug_mode:
+            print(f"【词嵌入层】Embedding 后形状: {x.shape} (每个 ID 变为了 {x.shape[-1]} 维向量)")
+
+        # 2. Transformer 骨干网 (Unified Backbone)
+        x = self.transformer(x)
+        if self.debug_mode:
+            print(f"【骨干网络】Transformer 输出形状: {x.shape} (特征间已完成深度注意力交互)")
+
+        # 3. 池化层 (Pooling) - 将全序列信息压缩为一个向量
+        x = x.mean(dim=1) 
+        if self.debug_mode:
+            print(f"【池化层】Mean Pooling 后形状: {x.shape} (序列维度被压缩)")
+
+        # 4. 预测层 (MLP)
+        out = self.fc(x).squeeze()
+        if self.debug_mode:
+            print(f"【输出层】最终预测概率形状: {out.shape}")
+            print(f"样例预测值 (前3个): {out[:3].detach().cpu().tolist() if out.ndim > 0 else out.item()}")
+            print(f"{'='*60}\n")
+            self.debug_mode = False # 仅打印一次
+            
+        return out
 # ==========================================
 # 3. 功能函数
 # ==========================================
@@ -91,15 +114,21 @@ def load_data_from_pt(filename):
         return None, 0, 0
     
     data = torch.load(path, weights_only=True)
-    # 标签转换: 1 -> 0.0 (负), 2 -> 1.0 (正)
+    # 标签转换
     y_target = (data['y'] == CFG['train']['positive_label']).float()
     
+    # --- 修复逻辑开始 ---
+    # data['x'] 现在形状是 [样本数, 1507]
+    # 我们只需要知道总序列长度即可
+    seq_len = data['x'].shape[1] 
+    num_f = 1 # 在 OneTrans 逻辑下，我们看作是 1 条统一的序列
+    # --- 修复逻辑结束 ---
+    
     dataset = TensorDataset(data['x'], y_target)
-    num_f, s_len = data['x'].shape[1], data['x'].shape[2]
     
     del data
     gc.collect()
-    return dataset, num_f, s_len
+    return dataset, num_f, seq_len
 
 # ==========================================
 # 4. 训练主流程

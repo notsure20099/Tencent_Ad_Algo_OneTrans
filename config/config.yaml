@@ -18,7 +18,7 @@ model:
   dropout: 0.1          # 数据量大时，dropout 可以设小一点
 
 train:
-  batch_size: 512       # A10 建议从 512 起步，如果显存还空就翻倍到 1024
+  batch_size: 8       # A10 建议从 512 起步，如果显存还空就翻倍到 1024
   lr: 0.0005            # Batch Size 变大后，学习率可以稍微调高一点（遵循线性缩放原则）
   epochs: 100
   positive_label: 2

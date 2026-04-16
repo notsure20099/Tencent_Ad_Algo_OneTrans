@@ -12,8 +12,8 @@ env:
 
 # 模型超参数 (针对 A10 完全体配置)
 model:
-  embed_dim: 256        # 维度从 16 直接拉到 256，增强特征表达
-  num_layers: 4         # 可以稍微加深 Transformer 层数
+  embed_dim: 512        # 维度从 16 直接拉到 256，增强特征表达
+  num_layers: 8         # 可以稍微加深 Transformer 层数
   n_heads: 8
   dropout: 0.1          # 数据量大时，dropout 可以设小一点
   use_pyramid: True       # 是否开启金字塔调度
@@ -23,7 +23,7 @@ model:
 train:
   batch_size: 8       # A10 建议从 512 起步，如果显存还空就翻倍到 1024
   lr: 0.0005            # Batch Size 变大后，学习率可以稍微调高一点（遵循线性缩放原则）
-  epochs: 100
+  epochs: 5
   positive_label: 2
 
 # 预处理开关
@@ -111,5 +111,5 @@ feature_schema:
     domain_c: ["domain_c_seq_27", "domain_c_seq_28", "domain_c_seq_29", "domain_c_seq_30", "domain_c_seq_31", "domain_c_seq_32", "domain_c_seq_33", "domain_c_seq_34", "domain_c_seq_35", "domain_c_seq_36", "domain_c_seq_37", "domain_c_seq_47"]
     domain_d: ["domain_d_seq_17", "domain_d_seq_18", "domain_d_seq_19", "domain_d_seq_20", "domain_d_seq_21", "domain_d_seq_22", "domain_d_seq_23", "domain_d_seq_24", "domain_d_seq_25", "domain_d_seq_26"]
 
-  s_max_len: 32
+  s_max_len: 128
   ns_max_len: 1

@@ -1,103 +1,92 @@
 import os
 import yaml
 import torch
-import json
-import numpy as np
+import sys
 from torch.utils.data import DataLoader, TensorDataset
-from sklearn.metrics import roc_auc_score
-from tqdm import tqdm
-from src.models.onetrans import OneTransModel
+from src.models.factory import get_model
+from src.utils.trainer import Trainer
 
-# --- 1. 环境配置 ---
-CONFIG_PATH = '/mnt/workspace/Tencent_Ad_Algo_OneTrans/config/config.yaml'
-with open(CONFIG_PATH, 'r') as f:
-    CFG = yaml.safe_load(f)
+def auto_configure(cfg):
+    """
+    根据硬件环境自动调整超参数，防止 CPU 内存溢出
+    """
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+        print(f"💡 检测到 GPU ({torch.cuda.get_device_name(0)}), 使用完全体配置。")
+    else:
+        device = torch.device("cpu")
+        print("⚠️ 警告: 未检测到 GPU，切换至 [CPU 调试模式]：强制降低维度以防 Terminated。")
+        
+        # 强制覆盖内存敏感参数
+        cfg['model']['embed_dim'] = 16        # 极大降低 Embedding 层内存占用
+        cfg['model']['num_layers'] = 2       # 减少层数
+        cfg['model']['n_heads'] = 2          # 减少头数
+        cfg['train']['batch_size'] = 2       # CPU 模式极小 Batch
+        cfg['env']['use_bf16'] = False       # CPU 暂不开启 BF16
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    return device, cfg
 
-def evaluate(model, loader, device, use_amp):
-    """验证集评估函数"""
-    model.eval()
-    all_labels = []
-    all_preds = []
-    total_loss = 0
-    criterion = torch.nn.BCEWithLogitsLoss()
+def run_experiment():
+    # 1. 加载基础配置
+    CONFIG_PATH = './config/config.yaml'
+    if not os.path.exists(CONFIG_PATH):
+        print(f"❌ 错误: 找不到配置文件 {CONFIG_PATH}")
+        return
+
+    with open(CONFIG_PATH, 'r') as f:
+        base_cfg = yaml.safe_load(f)
+
+    # 2. 硬件感知与参数自动覆盖
+    device, cfg = auto_configure(base_cfg)
+
+    if device.type == 'cuda':
+        os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+        torch.backends.cudnn.benchmark = True
+
+    # 3. 数据加载
+    processed_dir = cfg['paths']['processed_dir']
+    train_path = os.path.join(processed_dir, 'train_data.pt')
+    val_path = os.path.join(processed_dir, 'val_data.pt')
+
+    if not os.path.exists(train_path):
+        print(f"❌ 错误: 找不到预处理数据 {train_path}，请先运行数据准备脚本。")
+        return
+
+    train_data = torch.load(train_path, weights_only=True)
+    val_data = torch.load(val_path, weights_only=True)
     
-    with torch.no_grad():
-        for x, y in loader:
-            x, y = x.to(device), y.to(device)
-            with torch.amp.autocast(device_type=device.type, enabled=use_amp, dtype=torch.bfloat16):
-                logits = model(x)
-                loss = criterion(logits, y)
-            
-            total_loss += loss.item()
-            all_labels.extend(y.float().cpu().numpy())
-            all_preds.extend(torch.sigmoid(logits).float().cpu().numpy())
-    
-    auc = roc_auc_score(all_labels, all_preds)
-    return total_loss / len(loader), auc
-
-def train():
-    # --- 2. 数据加载与动态词表对齐 ---
-    processed_dir = CFG['paths']['processed_dir']
-    train_data = torch.load(os.path.join(processed_dir, 'train_data.pt'), weights_only=True)
-    val_data = torch.load(os.path.join(processed_dir, 'val_data.pt'), weights_only=True)
-    
-    # 动态确定词表大小（覆盖所有已见ID）
     vocab_size = max(train_data['x'].max().item(), val_data['x'].max().item()) + 1
     seq_len = train_data['x'].shape[1]
     
-    train_set = TensorDataset(train_data['x'], train_data['y'])
-    val_set = TensorDataset(val_data['x'], val_data['y'])
+    train_loader = DataLoader(
+        TensorDataset(train_data['x'], train_data['y']), 
+        batch_size=cfg['train']['batch_size'], shuffle=True
+    )
+    val_loader = DataLoader(
+        TensorDataset(val_data['x'], val_data['y']), 
+        batch_size=cfg['train']['batch_size'], shuffle=False
+    )
     
-    train_loader = DataLoader(train_set, batch_size=CFG['train']['batch_size'], shuffle=True)
-    val_loader = DataLoader(val_set, batch_size=CFG['train']['batch_size'], shuffle=False)
+    # 4. 初始化模型 (通过工厂)
+    print(f"🚀 启动 | 模型: {cfg['model'].get('type', 'onetrans')} | 词表: {vocab_size} | 序列: {seq_len}")
+    model = get_model(vocab_size, seq_len, cfg['model']).to(device)
     
-    # --- 3. 模型与优化器初始化 ---
-    print(f"🚀 启动训练 | 设备: {DEVICE} | 词表: {vocab_size} | 序列: {seq_len}")
-    model = OneTransModel(vocab_size, seq_len, CFG['model']).to(DEVICE)
-    
-    optimizer = torch.optim.AdamW(model.parameters(), lr=float(CFG['train']['lr']), weight_decay=0.01)
+    # 5. 训练准备
+    optimizer = torch.optim.AdamW(model.parameters(), lr=float(cfg['train']['lr']), weight_decay=0.01)
     criterion = torch.nn.BCEWithLogitsLoss()
+    use_amp = (device.type == 'cuda' and cfg['env'].get('use_bf16', False))
     
-    use_amp = (DEVICE.type == 'cuda' and CFG['env'].get('use_bf16', False))
-    scaler = torch.amp.GradScaler(enabled=use_amp)
+    trainer = Trainer(model, optimizer, criterion, device, use_amp)
 
-    # --- 4. 训练循环 ---
-    for epoch in range(CFG['train']['epochs']):
-        model.train()
-        epoch_loss = 0
-        pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{CFG['train']['epochs']}")
-        
-        for x, y in pbar:
-            x, y = x.to(DEVICE), y.to(DEVICE)
-            optimizer.zero_grad()
-            
-            with torch.amp.autocast(device_type=DEVICE.type, enabled=use_amp, dtype=torch.bfloat16):
-                logits = model(x)
-                loss = criterion(logits, y)
-            
-            scaler.scale(loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
-            
-            epoch_loss += loss.item()
-            pbar.set_postfix({"batch_loss": f"{loss.item():.4f}"})
-        
-        # --- 5. 每轮结束进行验证 ---
-        avg_train_loss = epoch_loss / len(train_loader)
-        val_loss, val_auc = evaluate(model, val_loader, DEVICE, use_amp)
+    # 6. 训练循环
+    for epoch in range(cfg['train']['epochs']):
+        train_loss = trainer.train_one_epoch(train_loader, epoch, cfg['train']['epochs'])
+        val_loss, val_auc = trainer.evaluate(val_loader)
         
         print(f"\n✨ Epoch {epoch+1} 总结:")
-        print(f"   [Train] Loss: {avg_train_loss:.4f}")
+        print(f"   [Train] Loss: {train_loss:.4f}")
         print(f"   [Val]   Loss: {val_loss:.4f} | AUC: {val_auc:.4f}")
         print("-" * 30)
 
-        # 保存最优模型
-        # torch.save(model.state_dict(), f"model_epoch_{epoch+1}.pt")
-
 if __name__ == "__main__":
-    if torch.cuda.is_available():
-        os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
-        torch.backends.cudnn.benchmark = True
-    train()
+    run_experiment()
